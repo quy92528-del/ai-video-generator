@@ -13,6 +13,12 @@ output/thumbnails/*.jpg
 output/metadata/*.json
 output/logs/*.log
 output/logs/*.log.*
+output/images/
+output/clips/
+output/audio/
+output/mixed/
+output/lipsync/
+output/reframed/
 
 # Cache directory
 .cache/
