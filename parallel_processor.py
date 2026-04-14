@@ -111,6 +111,7 @@ class ParallelProcessor:
         self._backend = result_backend
         self._celery_app: Any = None
         self._executor: Optional[ThreadPoolExecutor] = None
+        self._executor_shutdown: bool = False
         self._jobs: Dict[str, BatchJob] = {}
 
         if use_celery:
@@ -148,8 +149,9 @@ class ParallelProcessor:
             self._use_celery = False
 
     def _get_executor(self) -> ThreadPoolExecutor:
-        if self._executor is None or self._executor._shutdown:  # type: ignore[attr-defined]
+        if self._executor is None or self._executor_shutdown:
             self._executor = ThreadPoolExecutor(max_workers=self._max_workers)
+            self._executor_shutdown = False
         return self._executor
 
     # ------------------------------------------------------------------ #
@@ -272,6 +274,7 @@ class ParallelProcessor:
         """
         if self._executor:
             self._executor.shutdown(wait=wait)
+            self._executor_shutdown = True
             log.info("Thread pool executor shut down.")
 
     # ------------------------------------------------------------------ #

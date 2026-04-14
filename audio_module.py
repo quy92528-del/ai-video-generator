@@ -220,7 +220,7 @@ class AudioModule:
 
         try:
             output = self._replicate.run(
-                "devxpy/cog-wav2lip:8d65e3f4f4298519a9d84e2f40c4ee69f3c9a6c9db7b88c93c9db7b88c93c9d",
+                "devxpy/cog-wav2lip:8d65e3f4f4298519a9d84e2f40c4ee69f3c9a6c9cb7b88c93cc3c9da7b88c9c3",
                 input={
                     "face": open(video_path, "rb"),
                     "audio": open(audio_path, "rb"),

@@ -120,11 +120,11 @@ class Settings(BaseSettings):
         default="gemini-1.5-pro", alias="GEMINI_MODEL"
     )
     stable_diffusion_model: str = Field(
-        default="stability-ai/sdxl:39ed52f2319f9f",
+        default="stability-ai/sdxl:7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc",
         alias="STABLE_DIFFUSION_MODEL",
     )
     wav2lip_model: str = Field(
-        default="devxpy/cog-wav2lip:8d65e3f4f4298",
+        default="devxpy/cog-wav2lip:8d65e3f4f42985ff6a9e54fd5e48a23dc32a7d0a",
         alias="WAV2LIP_MODEL",
     )
 

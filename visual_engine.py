@@ -71,7 +71,7 @@ class VisualEngine:
         runway_api_key: str = "",
         heygen_api_key: str = "",
         output_dir: str = "output",
-        sd_model: str = "stability-ai/sdxl:39ed52f2319f9f4ab7a967071f5720dbfb4cd6b079cf5e4e38c5cbde04e7ef45",
+        sd_model: str = "stability-ai/sdxl:7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc",
     ) -> None:
         self._replicate_token = replicate_token
         self._runway_key = runway_api_key
