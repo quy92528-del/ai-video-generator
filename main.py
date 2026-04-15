@@ -1,8 +1,23 @@
+# -*- coding: utf-8 -*-
 import argparse
 import logging
+import sys
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
+
+def configure_logging() -> None:
+    """Configure logging with UTF-8 safe console output."""
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
+
+configure_logging()
 
 class AIVideoGenerator:
     """A class to generate AI videos based on input parameters."""
