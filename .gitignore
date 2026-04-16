@@ -1,3 +1,30 @@
+# ============================================================
+# AI Video Generator Suite - Additional ignores
+# ============================================================
+
+# Environment file (contains secrets)
+.env
+
+# Generated output files (large binary files)
+output/videos/*.mp4
+output/videos/*.mov
+output/thumbnails/*.png
+output/thumbnails/*.jpg
+output/metadata/*.json
+output/logs/*.log
+output/logs/*.log.*
+output/images/
+output/clips/
+output/audio/
+output/mixed/
+output/lipsync/
+output/reframed/
+
+# Cache directory
+.cache/
+
+# ============================================================
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

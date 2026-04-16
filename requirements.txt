@@ -1,0 +1,67 @@
+# ============================================================
+# AI Video Generator Suite - Python Dependencies
+# ============================================================
+
+# --- Core Framework ---
+streamlit==1.28.0
+python-dotenv==1.0.0
+requests==2.31.0
+pydantic==2.4.2
+pydantic-settings==2.1.0
+
+# --- Google AI ---
+google-generativeai==0.3.2
+google-cloud-texttospeech==2.14.1
+google-cloud-storage==2.12.0
+
+# --- Video & Image Processing ---
+moviepy==1.0.3
+opencv-python-headless==4.8.1.78
+Pillow==12.2.0
+numpy==1.24.4
+scipy==1.11.4
+imageio==2.33.0
+imageio-ffmpeg==0.4.9
+
+# --- Audio Processing ---
+librosa==0.10.1
+soundfile==0.12.1
+pydub==0.25.1
+
+# --- Face Detection & Consistency ---
+mediapipe==0.10.8
+onnxruntime==1.16.3
+
+# --- HTTP & Async ---
+aiohttp==3.13.3
+httpx==0.25.2
+tenacity==8.2.3
+
+# --- Task Queue & Caching ---
+redis==5.0.1
+celery==5.3.6
+kombu==5.3.3
+
+# --- Database ---
+sqlalchemy==2.0.23
+aiosqlite==0.19.0
+
+# --- API Clients ---
+replicate==0.22.0
+elevenlabs==0.3.0
+
+# --- Utilities ---
+tqdm==4.66.1
+PyYAML==6.0.1
+psutil==5.9.6
+click==8.1.7
+rich==13.7.0
+python-dateutil==2.8.2
+pytz==2023.3.post1
+humanize==4.9.0
+colorlog==6.8.0
+cachetools==5.3.2
+
+# --- Type Hints & Validation ---
+typing-extensions==4.8.0
+annotated-types==0.6.0
