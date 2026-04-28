@@ -24,6 +24,7 @@ from config import (
 from utils.logger import get_logger
 from utils.helpers import ensure_dir, write_json, format_duration, chunk_list
 from utils.validators import (
+    validate_batch_size,
     validate_config,
     validate_topic,
     validate_video_count,
@@ -133,18 +134,15 @@ def _validate_args(args: argparse.Namespace) -> Dict[str, Any]:
     try:
         topic = validate_topic(args.topic)
         count = validate_video_count(args.count)
+        batch = validate_batch_size(args.batch)
     except ValueError as exc:
         log.error("Validation error: %s", exc)
-        sys.exit(2)
-
-    if args.batch < 1:
-        log.error("Batch size must be at least 1.")
         sys.exit(2)
 
     return {
         "topic": topic,
         "count": count,
-        "batch": args.batch,
+        "batch": batch,
         "style": args.style,
         "language": args.language,
         "aspect_ratio": args.aspect_ratio,

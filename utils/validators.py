@@ -4,6 +4,7 @@ utils/validators.py - Input validation, API-key checks, and config validation.
 
 from __future__ import annotations
 
+import os
 import re
 from typing import Any, Dict, List, Optional
 
@@ -194,6 +195,47 @@ def validate_video_style(style: str) -> str:
             f"Video style '{style}' is not supported.  Allowed: {SUPPORTED_VIDEO_STYLES}"
         )
     return style
+
+
+def validate_batch_size(batch_size: Any, max_batch: int = 100) -> int:
+    """Validate that the batch size is a positive integer within limits.
+
+    Args:
+        batch_size: Raw value (may be string or int).
+        max_batch: Maximum allowed batch size (default: 100).
+
+    Returns:
+        Validated integer batch size.
+
+    Raises:
+        ValidationError: When the value is out of range or not an integer.
+    """
+    try:
+        batch_size = int(batch_size)
+    except (TypeError, ValueError) as exc:
+        raise ValidationError(
+            f"Batch size must be an integer, got {type(batch_size).__name__}."
+        ) from exc
+    if batch_size < 1 or batch_size > max_batch:
+        raise ValidationError(
+            f"Batch size must be between 1 and {max_batch}, got {batch_size}."
+        )
+    return batch_size
+
+
+def validate_api_keys(required_keys: List[str]) -> List[str]:
+    """Check that all required API keys are present in the environment.
+
+    Args:
+        required_keys: List of environment variable names to check.
+
+    Returns:
+        List of missing key names (empty list means all present).
+    """
+    missing = [key for key in required_keys if not os.environ.get(key, "").strip()]
+    if missing:
+        log.warning(f"Missing required API keys: {missing}")
+    return missing
 
 
 def validate_config(settings: Any) -> List[str]:
