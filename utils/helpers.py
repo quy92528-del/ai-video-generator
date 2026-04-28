@@ -248,6 +248,63 @@ class Timer:
 # Misc
 # ---------------------------------------------------------------------------
 
+def create_output_dirs(base_dir: str | Path = "output") -> Dict[str, Path]:
+    """Create the standard output directory structure.
+
+    Args:
+        base_dir: Root output directory (default: ``"output"``).
+
+    Returns:
+        Dictionary mapping directory names to resolved :class:`Path` objects.
+    """
+    base = Path(base_dir)
+    dirs = {
+        "root": base,
+        "videos": base / "videos",
+        "thumbnails": base / "thumbnails",
+        "metadata": base / "metadata",
+        "logs": base / "logs",
+    }
+    for path in dirs.values():
+        path.mkdir(parents=True, exist_ok=True)
+    return dirs
+
+
+def get_safe_filename(name: str, max_length: int = 100) -> str:
+    """Sanitize *name* for use as a filename.
+
+    Strips path separators, replaces whitespace with underscores, and removes
+    characters that are unsafe on common operating systems.
+
+    Args:
+        name: Raw filename string (without extension).
+        max_length: Maximum returned length.
+
+    Returns:
+        A sanitized filename string.
+    """
+    name = re.sub(r"[<>:\"/\\|?*\x00-\x1F]", "", name)
+    name = re.sub(r"\s+", "_", name.strip())
+    name = re.sub(r"_+", "_", name).strip("_")
+    return name[:max_length] or "file"
+
+
+def list_files(directory: str | Path, pattern: str = "*") -> List[Path]:
+    """Return sorted list of files in *directory* matching *pattern*.
+
+    Args:
+        directory: Directory to search.
+        pattern: Glob pattern (e.g. ``"*.mp4"``).
+
+    Returns:
+        Sorted list of matching :class:`Path` objects (files only).
+    """
+    d = Path(directory)
+    if not d.is_dir():
+        return []
+    return sorted(p for p in d.glob(pattern) if p.is_file())
+
+
 def deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
     """Recursively merge *override* into a copy of *base*.
 

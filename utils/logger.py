@@ -92,3 +92,23 @@ def get_logger(
 
     logger.propagate = False
     return logger
+
+
+def setup_logger(
+    level: int = logging.INFO,
+    log_dir: Optional[Path] = None,
+) -> logging.Logger:
+    """Configure and return the root application logger.
+
+    This is a convenience wrapper around :func:`get_logger` that sets up a
+    top-level ``"ai_video_generator"`` logger suitable for use in CLI scripts
+    and other entry points.
+
+    Args:
+        level: Minimum log level (default: ``logging.INFO``).
+        log_dir: Directory for log files.  Defaults to ``output/logs``.
+
+    Returns:
+        Configured root application :class:`logging.Logger`.
+    """
+    return get_logger("ai_video_generator", level=level, log_dir=log_dir)
