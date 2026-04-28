@@ -1,11 +1,10 @@
 """
-cli.py - Command-line batch processing interface for AI Video Generator Suite.
+cli.py - Command-line entry point for AI Video Generator Suite.
 
-Usage examples::
-
-    python cli.py --topic "Top 5 coffee shops in Hanoi" --count 10
-    python cli.py --topic "Nature scenes" --count 100 --batch 10 --style cinematic
-    python cli.py --topic "Tech tips" --count 5 --language en --style motion
+Usage:
+    python cli.py --topic "Vietnam travel" --count 5
+    python cli.py --topic "My Topic" --count 10 --batch 5 --style cinematic
+    python cli.py --topic "Hanoi food" --count 1 --language en --duration 30
 """
 
 from __future__ import annotations
@@ -13,239 +12,384 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from typing import List
+from typing import Any, Dict, List
 
-from utils.logger import setup_logger
-from utils.helpers import create_output_dirs, format_duration, Timer
+from config import (
+    SUPPORTED_ASPECT_RATIOS,
+    SUPPORTED_LANGUAGES,
+    SUPPORTED_VIDEO_DURATIONS,
+    SUPPORTED_VIDEO_STYLES,
+    get_settings,
+)
+from utils.logger import get_logger
+from utils.helpers import ensure_dir, write_json, format_duration, chunk_list
 from utils.validators import (
     validate_batch_size,
+    validate_config,
     validate_topic,
     validate_video_count,
 )
 
-log = setup_logger()
+log = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Argument parsing
+# Argument Parsing
 # ---------------------------------------------------------------------------
 
 def _build_parser() -> argparse.ArgumentParser:
-    """Build and return the CLI argument parser."""
+    """Build and return the CLI argument parser.
+
+    Returns:
+        Configured :class:`argparse.ArgumentParser`.
+    """
     parser = argparse.ArgumentParser(
         prog="cli.py",
-        description="AI Video Generator – command-line batch processor",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-examples:
-  python cli.py --topic "Coffee shops in Hanoi" --count 10
-  python cli.py --topic "Nature" --count 50 --batch 5 --style cinematic
-  python cli.py --topic "Tech tips" --count 5 --language en
-        """,
+        description="AI Video Generator Suite – batch video generation CLI",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     parser.add_argument(
         "--topic",
         required=True,
-        help="Video topic / subject (required)",
+        help="Topic or theme for the generated videos (e.g. 'Top 5 coffee shops in Hanoi').",
     )
     parser.add_argument(
         "--count",
         type=int,
-        default=10,
-        help="Total number of videos to generate (1-500, default: 10)",
+        default=1,
+        metavar="N",
+        help="Number of videos to generate (1–500).",
     )
     parser.add_argument(
         "--batch",
         type=int,
         default=10,
-        help="Number of videos to process per batch (1-100, default: 10)",
+        metavar="SIZE",
+        help="Number of videos to process per batch.",
     )
     parser.add_argument(
         "--style",
-        choices=["motion", "cinematic", "avatar"],
+        choices=list(SUPPORTED_VIDEO_STYLES),
         default="cinematic",
-        help="Video style (default: cinematic)",
+        help="Visual style for all generated videos.",
     )
     parser.add_argument(
         "--language",
+        choices=list(SUPPORTED_LANGUAGES.keys()),
         default="vi",
-        help="Output language code, e.g. en, vi, zh (default: vi)",
+        help="Narration and script language code.",
+    )
+    parser.add_argument(
+        "--aspect-ratio",
+        dest="aspect_ratio",
+        choices=list(SUPPORTED_ASPECT_RATIOS.keys()),
+        default="9:16",
+        help="Output video aspect ratio.",
     )
     parser.add_argument(
         "--duration",
         type=int,
+        choices=list(SUPPORTED_VIDEO_DURATIONS),
         default=30,
-        help="Video duration in seconds (default: 30)",
+        metavar="SECONDS",
+        help=f"Duration of each video in seconds. Allowed: {SUPPORTED_VIDEO_DURATIONS}.",
     )
     parser.add_argument(
         "--output-dir",
-        default="output",
-        help="Root output directory (default: output)",
+        dest="output_dir",
+        default=None,
+        help="Override output directory (defaults to settings.output_dir).",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Validate inputs and show plan without generating videos",
+        help="Validate inputs and settings without generating any videos.",
     )
     parser.add_argument(
         "--verbose",
         action="store_true",
-        help="Enable verbose / debug logging",
+        help="Enable verbose/debug logging.",
     )
 
     return parser
 
 
 # ---------------------------------------------------------------------------
-# Core batch logic
+# Validation
 # ---------------------------------------------------------------------------
 
-def _run_batch(
-    topic: str,
-    count: int,
-    batch_size: int,
-    style: str,
-    language: str,
-    duration: int,
-    output_dir: str,
-) -> int:
-    """Run the batch generation pipeline.
+def _validate_args(args: argparse.Namespace) -> Dict[str, Any]:
+    """Validate parsed CLI arguments and return a normalised params dict.
 
     Args:
-        topic: Video topic.
-        count: Total videos to generate.
-        batch_size: Videos per batch.
-        style: Video style string.
-        language: Language code.
-        duration: Video duration in seconds.
-        output_dir: Root output directory.
+        args: Parsed :class:`argparse.Namespace`.
 
     Returns:
-        Number of successfully generated videos.
+        Normalised parameters dictionary.
+
+    Raises:
+        SystemExit: When validation fails (prints an error and exits with code 2).
     """
-    from config import get_settings
-    from brain_module import BrainModule
-    from utils.helpers import chunk_list
-
-    settings = get_settings()
-
-    # Ensure output directories exist.
-    dirs = create_output_dirs(output_dir)
-    log.info(f"Output directory: {dirs['root'].resolve()}")
-
-    # Initialize BrainModule for script generation.
-    brain = BrainModule(api_key=settings.google_gemini_api_key)
-
-    log.info(
-        f"Starting batch generation: topic='{topic}' count={count} "
-        f"batch={batch_size} style={style} language={language} duration={duration}s"
-    )
-
-    # Generate scripts for all videos upfront.
-    log.info("Generating scripts …")
-    try:
-        scripts = brain.generate_batch(
-            topic=topic,
-            count=count,
-            styles=[style],
-            language=language,
-            duration=duration,
-        )
-    except Exception as exc:  # pylint: disable=broad-except
-        log.error(f"Script generation failed: {exc}")
-        return 0
-
-    if not scripts:
-        log.warning("No scripts were generated – aborting")
-        return 0
-
-    log.info(f"Generated {len(scripts)} scripts")
-
-    # Process in batches.
-    success = 0
-    for batch_num, batch in enumerate(chunk_list(scripts, batch_size), start=1):
-        log.info(f"Processing batch {batch_num} ({len(batch)} videos) …")
-        for script in batch:
-            try:
-                log.info(f"  → {script.title}")
-                # TODO: Wire up VisualEngine, AudioModule, PostProduction when
-                # API keys are configured.  Scripts are written to metadata/.
-                from utils.helpers import write_json
-                meta_path = dirs["metadata"] / f"{script.cache_key or 'video'}.json"
-                write_json(script.to_dict(), meta_path)
-                success += 1
-            except Exception as exc:  # pylint: disable=broad-except
-                log.error(f"Failed to process '{script.title}': {exc}")
-
-    return success
-
-
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
-
-def main(argv: List[str] | None = None) -> int:
-    """CLI entry point.
-
-    Args:
-        argv: Argument list (defaults to ``sys.argv[1:]``).
-
-    Returns:
-        Exit code (0 = success, 1 = error).
-    """
-    import logging
-
-    parser = _build_parser()
-    args = parser.parse_args(argv)
-
-    if args.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
-        log.setLevel(logging.DEBUG)
-
-    # --- Validate inputs ----------------------------------------------------
     try:
         topic = validate_topic(args.topic)
         count = validate_video_count(args.count)
-        batch_size = validate_batch_size(args.batch)
+        batch = validate_batch_size(args.batch)
     except ValueError as exc:
-        log.error(f"Invalid argument: {exc}")
-        return 1
+        log.error("Validation error: %s", exc)
+        sys.exit(2)
+
+    return {
+        "topic": topic,
+        "count": count,
+        "batch": batch,
+        "style": args.style,
+        "language": args.language,
+        "aspect_ratio": args.aspect_ratio,
+        "duration": args.duration,
+        "output_dir": args.output_dir,
+        "dry_run": args.dry_run,
+        "verbose": args.verbose,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Generation Pipeline
+# ---------------------------------------------------------------------------
+
+def _run_batch(
+    params: Dict[str, Any],
+    batch_indices: List[int],
+    settings: Any,
+    output_dir: str,
+    results: List[Dict[str, Any]],
+) -> None:
+    """Run generation for one batch of videos.
+
+    Args:
+        params: Normalised parameters from :func:`_validate_args`.
+        batch_indices: 1-based indices of the videos in this batch.
+        settings: Loaded :class:`config.Settings` instance.
+        output_dir: Resolved output directory path.
+        results: List to append result dicts to (mutated in place).
+    """
+    from brain_module import BrainModule
+    from visual_engine import VisualEngine
+    from audio_module import AudioModule
+    from post_production import PostProduction
+    from cost_tracker import CostTracker
+
+    brain = BrainModule(
+        api_key=settings.google_gemini_api_key,
+        model=settings.gemini_model,
+    )
+    visual = VisualEngine(
+        replicate_token=settings.replicate_api_token,
+        runway_api_key=settings.runway_api_key,
+        heygen_api_key=settings.heygen_api_key,
+        output_dir=output_dir,
+    )
+    audio = AudioModule(
+        google_credentials_json=settings.google_cloud_credentials_json,
+        elevenlabs_api_key=settings.elevenlabs_api_key,
+        replicate_token=settings.replicate_api_token,
+        output_dir=output_dir,
+    )
+    post = PostProduction(output_dir=output_dir, fps=settings.video_fps)
+    tracker = CostTracker(budget_usd=settings.budget_limit_usd)
+
+    total = params["count"]
+
+    for idx in batch_indices:
+        if tracker.budget_exhausted:
+            log.warning("Budget exhausted – stopping generation.")
+            break
+
+        log.info("[%d/%d] Generating %s video …", idx, total, params["style"])
+
+        try:
+            # 1. Generate script.
+            script = brain.generate_script(
+                topic=params["topic"],
+                style=params["style"],
+                language=params["language"],
+                duration=params["duration"],
+                variation_index=idx - 1,
+            )
+            tracker.record_gemini(input_tokens=600, output_tokens=400)
+
+            # 2. Generate scenes.
+            clip_paths: List[str] = []
+            for scene in script.scenes:
+                try:
+                    if params["style"] == "avatar":
+                        clip = visual.create_avatar_video(
+                            script_text=scene.narration,
+                            output_dir=f"{output_dir}/clips",
+                        )
+                        tracker.record_video_generation(
+                            clip.duration_seconds, provider="heygen"
+                        )
+                    elif params["style"] == "cinematic":
+                        clip = visual.generate_cinematic_video(
+                            prompt=scene.description,
+                            duration_seconds=scene.duration_seconds,
+                            output_dir=f"{output_dir}/clips",
+                        )
+                        tracker.record_video_generation(
+                            clip.duration_seconds, provider="runway"
+                        )
+                    else:  # motion
+                        img = visual.generate_image(
+                            prompt=scene.description,
+                            output_dir=f"{output_dir}/images",
+                        )
+                        tracker.record_image_generation(1)
+                        clip = visual.generate_video_from_image(
+                            image_path=img.path,
+                            prompt=scene.description,
+                            duration_seconds=scene.duration_seconds,
+                            output_dir=f"{output_dir}/clips",
+                        )
+                        tracker.record_video_generation(
+                            clip.duration_seconds, provider="runway"
+                        )
+                    clip_paths.append(clip.path)
+                except Exception as exc:  # pylint: disable=broad-except
+                    log.warning("  ⚠️ Scene %d failed: %s", scene.index, exc)
+
+            # 3. Generate audio.
+            all_narration = " ".join(s.narration for s in script.scenes)
+            voice_track = audio.synthesize_speech(
+                text=all_narration,
+                language=params["language"],
+            )
+            tracker.record_tts(len(all_narration), provider="google_tts")
+            mixed = audio.mix_audio(voice_track=voice_track)
+
+            # 4. Assemble video.
+            final = post.assemble(
+                clip_paths=clip_paths,
+                audio_path=mixed.path,
+                output_filename=f"video_{idx:04d}.mp4",
+                aspect_ratio=params["aspect_ratio"],
+            )
+
+            # 5. Write metadata.
+            meta: Dict[str, Any] = {
+                "index": idx,
+                "title": script.title,
+                "topic": params["topic"],
+                "style": params["style"],
+                "language": params["language"],
+                "duration": params["duration"],
+                "aspect_ratio": params["aspect_ratio"],
+                "cost_usd": tracker.total_cost,
+                "output_path": str(final.path),
+            }
+            meta_path = write_json(
+                meta, f"{output_dir}/metadata/video_{idx:04d}.json"
+            )
+            log.info("  ✓ Video %d complete → %s", idx, final.path)
+            results.append(meta)
+
+        except Exception as exc:  # pylint: disable=broad-except
+            log.error("  ✗ Video %d failed: %s", idx, exc)
+            results.append({"index": idx, "error": str(exc)})
+
+
+# ---------------------------------------------------------------------------
+# Main Entry Point
+# ---------------------------------------------------------------------------
+
+def main() -> None:
+    """Parse arguments and run batch video generation."""
+    parser = _build_parser()
+    args = parser.parse_args()
+
+    # Configure log level.
+    if args.verbose:
+        import logging
+        log.setLevel(logging.DEBUG)
 
     log.info("=" * 60)
-    log.info("AI Video Generator – CLI Batch Processor")
+    log.info("AI Video Generator Suite – CLI")
     log.info("=" * 60)
-    log.info(f"Topic    : {topic}")
-    log.info(f"Count    : {count}")
-    log.info(f"Batch    : {batch_size}")
-    log.info(f"Style    : {args.style}")
-    log.info(f"Language : {args.language}")
-    log.info(f"Duration : {args.duration}s")
-    log.info(f"Output   : {args.output_dir}")
 
-    if args.dry_run:
-        log.info("[DRY RUN] Validation passed – no videos will be generated")
-        return 0
+    # Load and validate settings.
+    try:
+        settings = get_settings()
+    except Exception as exc:  # pylint: disable=broad-except
+        log.error("Failed to load settings: %s", exc)
+        sys.exit(1)
 
-    # --- Run -----------------------------------------------------------------
-    with Timer() as timer:
-        generated = _run_batch(
-            topic=topic,
-            count=count,
-            batch_size=batch_size,
-            style=args.style,
-            language=args.language,
-            duration=args.duration,
-            output_dir=args.output_dir,
+    config_warnings = validate_config(settings)
+    if config_warnings:
+        for w in config_warnings:
+            log.warning(w)
+
+    # Validate CLI arguments.
+    params = _validate_args(args)
+
+    # Resolve output directory.
+    output_dir = params["output_dir"] or settings.output_dir
+    ensure_dir(output_dir)
+    ensure_dir(f"{output_dir}/videos")
+    ensure_dir(f"{output_dir}/metadata")
+
+    log.info("Topic        : %s", params["topic"])
+    log.info("Count        : %d", params["count"])
+    log.info("Batch size   : %d", params["batch"])
+    log.info("Style        : %s", params["style"])
+    log.info("Language     : %s", params["language"])
+    log.info("Aspect ratio : %s", params["aspect_ratio"])
+    log.info("Duration     : %ds", params["duration"])
+    log.info("Output dir   : %s", output_dir)
+
+    if params["dry_run"]:
+        log.info("Dry-run mode – no videos will be generated.")
+        sys.exit(0)
+
+    # Split into batches and process.
+    all_indices = list(range(1, params["count"] + 1))
+    batches = list(chunk_list(all_indices, params["batch"]))
+    results: List[Dict[str, Any]] = []
+
+    for batch_num, batch_indices in enumerate(batches, start=1):
+        log.info(
+            "--- Batch %d/%d (videos %d–%d) ---",
+            batch_num,
+            len(batches),
+            batch_indices[0],
+            batch_indices[-1],
         )
+        _run_batch(params, batch_indices, settings, output_dir, results)
 
+    # Summary.
+    succeeded = [r for r in results if "error" not in r]
+    failed = [r for r in results if "error" in r]
     log.info("=" * 60)
     log.info(
-        f"Done – {generated}/{count} videos processed in {format_duration(timer.elapsed)}"
+        "Done: %d succeeded, %d failed out of %d requested.",
+        len(succeeded),
+        len(failed),
+        params["count"],
     )
 
-    return 0 if generated > 0 else 1
+    # Write run summary.
+    summary = {
+        "topic": params["topic"],
+        "requested": params["count"],
+        "succeeded": len(succeeded),
+        "failed": len(failed),
+        "videos": results,
+    }
+    summary_path = write_json(summary, f"{output_dir}/metadata/run_summary.json")
+    log.info("Run summary written to %s", summary_path)
+
+    if failed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
