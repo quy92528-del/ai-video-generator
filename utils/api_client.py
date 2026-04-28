@@ -19,12 +19,12 @@ log = get_logger(__name__)
 class APIClient:
     """Lightweight client for multiple AI services.
 
-    Reads API keys from environment variables and lazily initialises each
+    Reads API keys from environment variables and lazily initializes each
     service on first use.
     """
 
     def __init__(self) -> None:
-        """Initialise API Client from environment variables."""
+        """Initialize API Client from environment variables."""
         self.gemini_api_key: str = os.getenv("GOOGLE_GEMINI_API_KEY", "")
         self.veo_api_key: str = os.getenv("VEO_API_KEY", "")
         self.grok_api_key: str = os.getenv("GROK_API_KEY", "")
@@ -36,9 +36,9 @@ class APIClient:
 
                 genai.configure(api_key=self.gemini_api_key)
                 self.gemini_model = genai.GenerativeModel("gemini-1.5-pro")
-                log.info("✓ Gemini API initialised")
+                log.info("✓ Gemini API initialized")
             except Exception as exc:  # pylint: disable=broad-except
-                log.warning(f"Could not initialise Gemini: {exc}")
+                log.warning(f"Could not initialize Gemini: {exc}")
         else:
             log.warning("GOOGLE_GEMINI_API_KEY not set – Gemini unavailable")
 
@@ -58,7 +58,7 @@ class APIClient:
             Generated text, or ``None`` on error.
         """
         if not self.gemini_model:
-            log.error("Gemini model not initialised")
+            log.error("Gemini model not initialized")
             return None
         try:
             log.info(f"Generating text for prompt: {prompt[:60]}…")

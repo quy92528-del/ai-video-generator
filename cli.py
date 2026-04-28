@@ -134,7 +134,7 @@ def _run_batch(
     dirs = create_output_dirs(output_dir)
     log.info(f"Output directory: {dirs['root'].resolve()}")
 
-    # Initialise BrainModule for script generation.
+    # Initialize BrainModule for script generation.
     brain = BrainModule(api_key=settings.google_gemini_api_key)
 
     log.info(

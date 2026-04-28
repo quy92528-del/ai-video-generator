@@ -4,6 +4,7 @@ utils/validators.py - Input validation, API-key checks, and config validation.
 
 from __future__ import annotations
 
+import os
 import re
 from typing import Any, Dict, List, Optional
 
@@ -231,8 +232,6 @@ def validate_api_keys(required_keys: List[str]) -> List[str]:
     Returns:
         List of missing key names (empty list means all present).
     """
-    import os
-
     missing = [key for key in required_keys if not os.environ.get(key, "").strip()]
     if missing:
         log.warning(f"Missing required API keys: {missing}")
