@@ -1,4 +1,4 @@
-
+"""
 main.py - Streamlit web interface for the AI Video Generator Suite.
 
 Entry point:
