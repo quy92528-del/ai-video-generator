@@ -67,53 +67,8 @@ class Settings(BaseSettings):
     heygen_api_key: str = Field(default="", alias="HEYGEN_API_KEY")
     did_api_key: str = Field(default="", alias="DID_API_KEY")
 
-    # ---- Veo (Google) ------------------------------------------------------
-    veo_api_key: str = Field(default="", alias="VEO_API_KEY")
-    veo_api_keys_extra: str = Field(
-        default="", alias="VEO_API_KEYS_EXTRA"
-    )  # Comma-separated additional Veo API keys
-    veo_model: str = Field(default="veo-3", alias="VEO_MODEL")
-    veo_account_type: str = Field(default="", alias="VEO_ACCOUNT_TYPE")
-    veo_expires_at: str = Field(default="", alias="VEO_EXPIRES_AT")
-
-    # ---- Grok (xAI) --------------------------------------------------------
+    # ---- Grok (future / mock) ---------------------------------------------
     grok_api_key: str = Field(default="", alias="GROK_API_KEY")
-    grok_api_keys_extra: str = Field(
-        default="", alias="GROK_API_KEYS_EXTRA"
-    )  # Comma-separated additional Grok API keys
-    grok_model: str = Field(default="grok-2-vision-1212", alias="GROK_MODEL")
-    grok_account_type: str = Field(default="", alias="GROK_ACCOUNT_TYPE")
-    grok_expires_at: str = Field(default="", alias="GROK_EXPIRES_AT")
-
-    # ---- ChatGPT (OpenAI) --------------------------------------------------
-    openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
-    openai_api_keys_extra: str = Field(default="", alias="OPENAI_API_KEYS_EXTRA")
-    openai_model: str = Field(default="gpt-4o", alias="OPENAI_MODEL")
-
-    # ---- Hybrid Station 2 - GCP GPU VM ------------------------------------
-    gcp_project_id: str = Field(default="", alias="GCP_PROJECT_ID")
-    gcp_zone: str = Field(default="us-central1-a", alias="GCP_ZONE")
-    gcp_gpu_instance_name: str = Field(
-        default="ai-video-gpu-worker", alias="GCP_GPU_INSTANCE_NAME"
-    )
-    gcp_ssh_user: str = Field(default="ubuntu", alias="GCP_SSH_USER")
-    gcp_worker_script: str = Field(
-        default="/opt/ai-video/worker.py", alias="GCP_WORKER_SCRIPT"
-    )
-    gcp_vm_startup_timeout: int = Field(
-        default=300, alias="GCP_VM_STARTUP_TIMEOUT"
-    )  # seconds
-    gcp_vm_task_timeout: int = Field(
-        default=3600, alias="GCP_VM_TASK_TIMEOUT"
-    )  # seconds
-    enable_station2_gpu: bool = Field(
-        default=False, alias="ENABLE_STATION2_GPU"
-    )  # Require explicit opt-in
-
-    # ---- Platform API Priority (comma-separated, e.g. "veo,grok,gemini") --
-    api_priority: str = Field(
-        default="veo,grok,gemini,chatgpt", alias="API_PRIORITY"
-    )
 
     # ---- Redis / Celery ----------------------------------------------------
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
@@ -211,24 +166,6 @@ API_COSTS = {
     "heygen_per_minute": 0.10,
     # D-ID
     "did_per_second": 0.007,
-    # Veo
-    "veo_per_second": 0.12,
-    # Grok video
-    "grok_video_per_clip": 0.05,
-    # ChatGPT / OpenAI
-    "openai_input_per_1k_tokens": 0.005,
-    "openai_output_per_1k_tokens": 0.015,
-}
-
-# ---------------------------------------------------------------------------
-# Per-platform scene duration (seconds per generation call)
-# ---------------------------------------------------------------------------
-
-PLATFORM_SCENE_SECONDS = {
-    "veo": 8.0,   # Veo 3 produces 8 s per generation
-    "grok": 6.0,  # Grok produces 6 s per generation
-    "runway": 5.0,
-    "heygen": 30.0,
 }
 
 # ---------------------------------------------------------------------------
@@ -246,30 +183,12 @@ SUPPORTED_LANGUAGES = {
 }
 
 SUPPORTED_ASPECT_RATIOS = {
-    "9:16": (1080, 1920),    # Vertical / Reels / TikTok
-    "16:9": (1920, 1080),    # Horizontal / YouTube
-    "1:1": (1080, 1080),     # Square / Instagram
-    "4:3": (1440, 1080),     # Classic TV / Presentations
-    "3:4": (1080, 1440),     # Tall portrait
-    "21:9": (2560, 1080),    # Ultra-wide / Cinematic
-    "6:19": (720, 2280),     # Tall mobile (user-requested)
-    "19:6": (2280, 720),     # Wide mobile (user-requested)
+    "9:16": (1080, 1920),   # Vertical / Reels / TikTok
+    "16:9": (1920, 1080),   # Horizontal / YouTube
+    "1:1": (1080, 1080),    # Square / Instagram
 }
 
-SUPPORTED_VIDEO_STYLES = [
-    "motion",
-    "cinematic",
-    "avatar",
-    "animated",
-    "3d",
-    "pixar",
-    "anime",
-    "realistic",
-    "documentary",
-    "music_video",
-]
-
-SUPPORTED_PLATFORMS = ["veo", "grok", "gemini", "chatgpt", "runway", "heygen"]
+SUPPORTED_VIDEO_STYLES = ["motion", "cinematic", "avatar"]
 
 SUPPORTED_VIDEO_DURATIONS = list(range(15, 121, 15))  # 15 s intervals up to 120 s
 
