@@ -326,7 +326,7 @@ class Station2GPUExecutor:
                 internal_ip = getattr(ni, "network_ip", None)
                 access_configs = getattr(ni, "access_configs", []) or []
                 for ac in access_configs:
-                    nat_ip = getattr(ac, "nat_i_p", None)
+                    nat_ip = getattr(ac, "nat_ip", None)
                     if nat_ip:
                         external_ip = nat_ip
                         break

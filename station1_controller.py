@@ -19,6 +19,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from config import PLATFORM_SCENE_SECONDS
 from utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -45,12 +46,6 @@ class TaskType(str, Enum):
     GENERATE_MUSIC = "generate_music"
     FACE_ANIMATION = "face_animation"
 
-
-# Seconds each platform produces per generation call
-PLATFORM_SCENE_SECONDS: Dict[str, float] = {
-    Platform.VEO: 8.0,   # Veo 3: 8 s per generation
-    Platform.GROK: 6.0,  # Grok: 6 s per generation
-}
 
 # Default API priority order (tried left to right)
 DEFAULT_PRIORITY: List[Platform] = [

@@ -758,15 +758,15 @@ def _tab_generate(params: Dict[str, Any], settings: Any) -> None:
             veo_acct = getattr(settings, "veo_account_type", "") or "N/A"
             veo_exp = getattr(settings, "veo_expires_at", "") or "N/A"
             st.markdown(
-                f"🎬 **Veo** — Loại tài khoản: **{veo_acct}** | Ngày hết hạn: **{veo_exp}** "
-                f"| Thời lượng clip: **8s/cảnh**"
+                f"🎬 **Veo** — Account type: **{veo_acct}** | Expiry: **{veo_exp}** "
+                f"| Clip duration: **8s/scene**"
             )
         if platform in ("grok", "both"):
             grok_acct = getattr(settings, "grok_account_type", "") or "N/A"
             grok_exp = getattr(settings, "grok_expires_at", "") or "N/A"
             st.markdown(
-                f"⚡ **Grok** — Loại tài khoản: **{grok_acct}** | Ngày hết hạn: **{grok_exp}** "
-                f"| Thời lượng clip: **6s/cảnh**"
+                f"⚡ **Grok** — Account type: **{grok_acct}** | Expiry: **{grok_exp}** "
+                f"| Clip duration: **6s/scene**"
             )
         scene_count = params.get("scene_count", 10)
         secs = PLATFORM_SCENE_SECONDS.get(
@@ -774,7 +774,7 @@ def _tab_generate(params: Dict[str, Any], settings: Any) -> None:
         )
         total_secs = scene_count * secs
         st.info(
-            f"⏱️ Tổng ~{total_secs:.0f}s ({scene_count} cảnh × {secs:.0f}s)"
+            f"⏱️ Total ~{total_secs:.0f}s ({scene_count} scenes × {secs:.0f}s)"
         )
 
     # Validate inputs.
@@ -1031,9 +1031,10 @@ def _tab_avatar(settings: Any) -> None:
                         if r.success and r.output_path and r.output_path.exists():
                             st.video(str(r.output_path))
                         else:
-                            st.warning(f"Scene {i + 1} failed: {r.error}")
-                            if st.button(f"🔄 Retry Scene {i + 1}", key=f"retry_scene_{i}"):
-                                pass  # TODO: retry individual scene
+                            st.warning(
+                                f"Scene {i + 1} failed: {r.error}. "
+                                "Re-run generation to retry failed scenes."
+                            )
 
 
 # ---------------------------------------------------------------------------
