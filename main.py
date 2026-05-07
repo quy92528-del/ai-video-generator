@@ -600,7 +600,7 @@ def _run_generation(params: Dict[str, Any], settings: Any) -> None:
                     script = script_result.output.get("script")
 
                 # Fall back to BrainModule if controller script is unavailable
-                if script is None:
+                if script is None or not hasattr(script, "scenes"):
                     script = brain.generate_script(
                         topic=params["topic"],
                         style=style,
