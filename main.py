@@ -29,6 +29,7 @@ st.set_page_config(
 # Local imports (after st.set_page_config)
 # ---------------------------------------------------------------------------
 from config import (
+    PLATFORM_SCENE_SECONDS,
     SUPPORTED_ASPECT_RATIOS,
     SUPPORTED_LANGUAGES,
     SUPPORTED_VIDEO_DURATIONS,
@@ -41,13 +42,27 @@ from audio_module import AudioModule
 from post_production import PostProduction
 from cost_tracker import CostTracker
 from parallel_processor import ParallelProcessor, BatchJob
+from station1_controller import Station1Controller, Platform, TaskType
+from station2_gpu_executor import Station2GPUExecutor
+from avatar_engine import AvatarEngine, AvatarStyle, AvatarOutputType
 from utils.helpers import ensure_dir, write_json, format_duration
 from utils.validators import validate_config, validate_topic, validate_video_count
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-_STYLE_ICONS = {"motion": "🌊", "cinematic": "🎥", "avatar": "🧑‍💼"}
+_STYLE_ICONS = {
+    "motion": "🌊",
+    "cinematic": "🎥",
+    "avatar": "🧑‍💼",
+    "animated": "🎨",
+    "3d": "🧊",
+    "pixar": "🎠",
+    "anime": "⛩️",
+    "realistic": "📷",
+    "documentary": "🎞️",
+    "music_video": "🎵",
+}
 _LANG_FLAGS = {
     "vi": "🇻🇳 Vietnamese",
     "en": "🇺🇸 English",
@@ -56,6 +71,14 @@ _LANG_FLAGS = {
     "ko": "🇰🇷 Korean",
     "es": "🇪🇸 Spanish",
     "fr": "🇫🇷 French",
+}
+
+_PLATFORM_ICONS = {
+    "veo": "🎬 Veo",
+    "grok": "⚡ Grok",
+    "gemini": "✨ Gemini",
+    "chatgpt": "🤖 ChatGPT",
+    "both": "🔀 Veo + Grok",
 }
 
 
@@ -74,6 +97,14 @@ def _init_state() -> None:
         "log_messages": [],
         "total_cost": 0.0,
         "error_message": "",
+        "dark_mode": True,
+        "project_name": "",
+        "output_dir_override": "",
+        "face_references": [],
+        "avatar_results": [],
+        "selected_platform": "veo",
+        "platform_info": {},
+        "station2_vm_status": "unknown",
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -94,47 +125,84 @@ def _settings_page() -> None:
     st.markdown("Configure API keys and global preferences.")
 
     with st.form("settings_form"):
-        st.subheader("🔑 API Keys")
-        cols = st.columns(2)
+        st.subheader("🎬 Platform API Keys")
 
-        with cols[0]:
-            gemini_key = st.text_input(
-                "Google Gemini API Key",
-                type="password",
-                help="Required for script generation.",
+        st.markdown("**🎬 Veo (Google)**")
+        cols_veo = st.columns(3)
+        veo_key = cols_veo[0].text_input("Veo API Key (Primary)", type="password")
+        veo_extra = cols_veo[1].text_input(
+            "Veo API Keys (Extra, comma-separated)",
+            type="password",
+            help="Add multiple Veo API keys for multi-key load balancing.",
+        )
+        veo_account_type = cols_veo[2].text_input(
+            "Veo Account Type", placeholder="e.g. Veo3_Grok"
+        )
+        veo_expires = st.text_input(
+            "Veo Account Expiry Date", placeholder="e.g. 23/05/2027"
+        )
+
+        st.markdown("**⚡ Grok (xAI)**")
+        cols_grok = st.columns(3)
+        grok_key = cols_grok[0].text_input("Grok API Key (Primary)", type="password")
+        grok_extra = cols_grok[1].text_input(
+            "Grok API Keys (Extra, comma-separated)",
+            type="password",
+            help="Add multiple Grok keys for load balancing.",
+        )
+        grok_account_type = cols_grok[2].text_input(
+            "Grok Account Type", placeholder="e.g. Grok_Pro"
+        )
+        grok_expires = st.text_input(
+            "Grok Account Expiry Date", placeholder="e.g. 31/12/2025"
+        )
+
+        st.markdown("**✨ Gemini / Google AI**")
+        cols_gemini = st.columns(2)
+        gemini_key = cols_gemini[0].text_input("Google Gemini API Key", type="password")
+        openai_key = cols_gemini[1].text_input(
+            "🤖 OpenAI / ChatGPT API Key",
+            type="password",
+            help="Used for script writing with GPT-4.",
+        )
+
+        st.subheader("🔑 Other API Keys")
+        cols2 = st.columns(2)
+        with cols2[0]:
+            runway_key = st.text_input("Runway Gen-3 API Key", type="password")
+            replicate_key = st.text_input("Replicate API Token", type="password")
+        with cols2[1]:
+            elevenlabs_key = st.text_input("ElevenLabs API Key", type="password")
+            heygen_key = st.text_input("HeyGen API Key", type="password")
+
+        st.subheader("🖥️ Station 2 — GCP GPU VM")
+        cols3 = st.columns(2)
+        with cols3[0]:
+            gcp_project = st.text_input(
+                "GCP Project ID",
+                help="Required for GPU VM management.",
             )
-            runway_key = st.text_input(
-                "Runway Gen-3 API Key",
-                type="password",
-                help="Required for video generation (cinematic/motion styles).",
+            gcp_zone = st.text_input(
+                "GCP Zone", value="us-central1-a"
             )
-            replicate_key = st.text_input(
-                "Replicate API Token",
-                type="password",
-                help="Required for Stable Diffusion images and Wav2Lip.",
+            gcp_instance = st.text_input(
+                "GPU Instance Name", value="ai-video-gpu-worker"
+            )
+        with cols3[1]:
+            enable_station2 = st.checkbox(
+                "Enable Station 2 GPU Fallback",
+                help="When enabled, tasks fall back to a GCP GPU VM when all APIs are exhausted.",
             )
 
-        with cols[1]:
-            elevenlabs_key = st.text_input(
-                "ElevenLabs API Key",
-                type="password",
-                help="Optional: high-quality TTS voices.",
-            )
-            heygen_key = st.text_input(
-                "HeyGen API Key",
-                type="password",
-                help="Required for Avatar video style.",
-            )
-            budget = st.number_input(
-                "Budget Limit (USD)",
-                min_value=1.0,
-                max_value=10000.0,
-                value=300.0,
-                step=10.0,
-            )
+        budget = st.number_input(
+            "Budget Limit (USD)",
+            min_value=1.0,
+            max_value=10000.0,
+            value=300.0,
+            step=10.0,
+        )
 
         if st.form_submit_button("💾 Save Settings", type="primary"):
-            # Write to .env file.
             env_path = Path(".env")
             lines: List[str] = []
             if env_path.exists():
@@ -147,8 +215,26 @@ def _settings_page() -> None:
                         return
                 lines.append(f"{key}={val}")
 
+            if veo_key:
+                _set("VEO_API_KEY", veo_key)
+            if veo_extra:
+                _set("VEO_API_KEYS_EXTRA", veo_extra)
+            if veo_account_type:
+                _set("VEO_ACCOUNT_TYPE", veo_account_type)
+            if veo_expires:
+                _set("VEO_EXPIRES_AT", veo_expires)
+            if grok_key:
+                _set("GROK_API_KEY", grok_key)
+            if grok_extra:
+                _set("GROK_API_KEYS_EXTRA", grok_extra)
+            if grok_account_type:
+                _set("GROK_ACCOUNT_TYPE", grok_account_type)
+            if grok_expires:
+                _set("GROK_EXPIRES_AT", grok_expires)
             if gemini_key:
                 _set("GOOGLE_GEMINI_API_KEY", gemini_key)
+            if openai_key:
+                _set("OPENAI_API_KEY", openai_key)
             if runway_key:
                 _set("RUNWAY_API_KEY", runway_key)
             if replicate_key:
@@ -157,6 +243,11 @@ def _settings_page() -> None:
                 _set("ELEVENLABS_API_KEY", elevenlabs_key)
             if heygen_key:
                 _set("HEYGEN_API_KEY", heygen_key)
+            if gcp_project:
+                _set("GCP_PROJECT_ID", gcp_project)
+            _set("GCP_ZONE", gcp_zone)
+            _set("GCP_GPU_INSTANCE_NAME", gcp_instance)
+            _set("ENABLE_STATION2_GPU", "true" if enable_station2 else "false")
             _set("BUDGET_LIMIT_USD", str(budget))
 
             env_path.write_text("\n".join(lines))
@@ -169,14 +260,88 @@ def _settings_page() -> None:
 
 def _render_sidebar() -> Dict[str, Any]:
     st.sidebar.title("🎬 AI Video Generator")
+
+    # Dark / Light mode toggle
+    dark_mode = st.sidebar.toggle(
+        "🌙 Dark Mode",
+        value=st.session_state.dark_mode,
+        key="dark_mode_toggle",
+    )
+    st.session_state.dark_mode = dark_mode
+
+    st.sidebar.markdown("---")
+
+    # Optional project name (tool still runs without it)
+    project_name = st.sidebar.text_input(
+        "📁 Project Name (optional)",
+        value=st.session_state.project_name,
+        placeholder="Leave blank to use default",
+        help="Name your project for organisation. Tool runs without this.",
+    )
+    st.session_state.project_name = project_name
+
+    # Optional output directory override
+    output_dir_override = st.sidebar.text_input(
+        "💾 Save Location (optional)",
+        value=st.session_state.output_dir_override,
+        placeholder="Default: ./output",
+        help="Choose where to save generated files.",
+    )
+    st.session_state.output_dir_override = output_dir_override
+
+    st.sidebar.markdown("---")
+
+    # --- Platform Selector ---------------------------------------------------
+    st.sidebar.subheader("🚀 Platform")
+    platform_options = list(_PLATFORM_ICONS.keys())
+    selected_platform = st.sidebar.radio(
+        "AI Video Platform",
+        options=platform_options,
+        format_func=lambda k: _PLATFORM_ICONS[k],
+        index=platform_options.index(
+            st.session_state.get("selected_platform", "veo")
+        ),
+        horizontal=False,
+        help=(
+            "Select the platform to use. "
+            "Veo: 8s/clip. Grok: 6s/clip. 'Veo + Grok' uses both."
+        ),
+    )
+    st.session_state.selected_platform = selected_platform
+
     st.sidebar.markdown("---")
 
     topic = st.sidebar.text_area(
-        "📝 Video Topic",
+        "📝 Video Topic / Idea",
         placeholder="E.g. 'Top 5 travel destinations in Vietnam'",
         height=100,
-        help="Describe what your videos should be about.",
+        help="Describe your video. The AI will expand this into a full script.",
     )
+
+    scene_count = st.sidebar.number_input(
+        "🎬 Number of Scenes",
+        min_value=1,
+        max_value=50,
+        value=10,
+        step=1,
+        help="How many scenes to generate. Each scene duration depends on the platform.",
+    )
+
+    # Show calculated total duration based on platform
+    if selected_platform == "both":
+        # Mix: alternate between Veo and Grok
+        veo_secs = PLATFORM_SCENE_SECONDS.get("veo", 8.0)
+        total_dur = scene_count * veo_secs
+        st.sidebar.caption(
+            f"⏱️ ~{total_dur:.0f}s total ({scene_count} scenes × {veo_secs:.0f}s via Veo)"
+        )
+    else:
+        secs = PLATFORM_SCENE_SECONDS.get(selected_platform, 8.0)
+        if secs > 0:
+            total_dur = scene_count * secs
+            st.sidebar.caption(
+                f"⏱️ ~{total_dur:.0f}s total ({scene_count} scenes × {secs:.0f}s)"
+            )
 
     video_count = st.sidebar.slider(
         "🔢 Number of Videos",
@@ -214,7 +379,7 @@ def _render_sidebar() -> Dict[str, Any]:
     aspect_ratio = st.sidebar.radio(
         "📐 Aspect Ratio",
         options=list(SUPPORTED_ASPECT_RATIOS.keys()),
-        horizontal=True,
+        horizontal=False,
     )
 
     duration = st.sidebar.select_slider(
@@ -223,17 +388,31 @@ def _render_sidebar() -> Dict[str, Any]:
         value=30,
     )
 
+    # Progress mode: Auto or Manual
+    progress_mode = st.sidebar.radio(
+        "⚙️ Progress Mode",
+        options=["auto", "manual"],
+        format_func=lambda m: "🤖 Auto" if m == "auto" else "🎛️ Manual",
+        horizontal=True,
+        help="Auto: AI decides scene count/duration. Manual: Use your settings above.",
+    )
+
     st.sidebar.markdown("---")
-    st.sidebar.caption("🔧 [Settings](#settings)")
+    st.sidebar.caption("🔧 Open **Settings** page to configure API keys.")
 
     return {
         "topic": topic,
+        "scene_count": scene_count,
         "video_count": video_count,
         "styles": selected_styles,
         "variations": variations,
         "language": language,
         "aspect_ratio": aspect_ratio,
         "duration": duration,
+        "platform": selected_platform,
+        "progress_mode": progress_mode,
+        "project_name": project_name or "default_project",
+        "output_dir": output_dir_override or "output",
     }
 
 
@@ -241,15 +420,133 @@ def _render_sidebar() -> Dict[str, Any]:
 # Generation Worker (runs in background thread)
 # ---------------------------------------------------------------------------
 
+def _build_hybrid_controller(settings: Any) -> Station1Controller:
+    """
+    Build and configure the Station1Controller from current settings.
+
+    Registers all available API keys (primary + extras) for each platform
+    and wires up Station 2 GPU executor if enabled.
+    """
+    # --- Station 2 GPU Executor (optional) ----------------------------------
+    gpu_executor: Optional[Any] = None
+    if getattr(settings, "enable_station2_gpu", False):
+        gpu_executor = Station2GPUExecutor(
+            project_id=getattr(settings, "gcp_project_id", ""),
+            zone=getattr(settings, "gcp_zone", "us-central1-a"),
+            instance_name=getattr(settings, "gcp_gpu_instance_name", "ai-video-gpu-worker"),
+            credentials_json=getattr(settings, "google_cloud_credentials_json", ""),
+            startup_timeout=getattr(settings, "gcp_vm_startup_timeout", 300),
+            task_timeout=getattr(settings, "gcp_vm_task_timeout", 3600),
+            ssh_user=getattr(settings, "gcp_ssh_user", "ubuntu"),
+            worker_script=getattr(settings, "gcp_worker_script", "/opt/ai-video/worker.py"),
+        )
+
+    # --- Priority from settings (e.g. "veo,grok,gemini,chatgpt") -----------
+    priority_str = getattr(settings, "api_priority", "veo,grok,gemini,chatgpt")
+    priority_platforms: List[Platform] = []
+    for name in priority_str.split(","):
+        try:
+            priority_platforms.append(Platform(name.strip().lower()))
+        except ValueError:
+            pass
+
+    controller = Station1Controller(
+        priority=priority_platforms or None,
+        gpu_executor=gpu_executor,
+        status_callback=lambda s: _log(s.get("log", "")),
+    )
+
+    # --- Register Veo keys --------------------------------------------------
+    veo_key = getattr(settings, "veo_api_key", "")
+    if veo_key:
+        controller.add_api_key(
+            Platform.VEO,
+            veo_key,
+            label="veo_primary",
+            account_type=getattr(settings, "veo_account_type", ""),
+            expires_at=getattr(settings, "veo_expires_at", ""),
+        )
+    for extra_key in _split_keys(getattr(settings, "veo_api_keys_extra", "")):
+        controller.add_api_key(
+            Platform.VEO,
+            extra_key,
+            label="veo_extra",
+            account_type=getattr(settings, "veo_account_type", ""),
+            expires_at=getattr(settings, "veo_expires_at", ""),
+        )
+
+    # --- Register Grok keys -------------------------------------------------
+    grok_key = getattr(settings, "grok_api_key", "")
+    if grok_key:
+        controller.add_api_key(
+            Platform.GROK,
+            grok_key,
+            label="grok_primary",
+            account_type=getattr(settings, "grok_account_type", ""),
+            expires_at=getattr(settings, "grok_expires_at", ""),
+        )
+    for extra_key in _split_keys(getattr(settings, "grok_api_keys_extra", "")):
+        controller.add_api_key(
+            Platform.GROK,
+            extra_key,
+            label="grok_extra",
+            account_type=getattr(settings, "grok_account_type", ""),
+            expires_at=getattr(settings, "grok_expires_at", ""),
+        )
+
+    # --- Register Gemini key ------------------------------------------------
+    gemini_key = getattr(settings, "google_gemini_api_key", "")
+    if gemini_key:
+        controller.add_api_key(Platform.GEMINI, gemini_key, label="gemini_primary")
+
+    # --- Register ChatGPT key -----------------------------------------------
+    openai_key = getattr(settings, "openai_api_key", "")
+    if openai_key:
+        controller.add_api_key(Platform.CHATGPT, openai_key, label="chatgpt_primary")
+    for extra_key in _split_keys(getattr(settings, "openai_api_keys_extra", "")):
+        controller.add_api_key(Platform.CHATGPT, extra_key, label="chatgpt_extra")
+
+    return controller
+
+
+def _split_keys(raw: str) -> List[str]:
+    """Split a comma-separated string of API keys into a list, ignoring empty."""
+    return [k.strip() for k in raw.split(",") if k.strip()]
+
+
+def _platform_priority_from_selection(selected: str) -> Optional[List[Platform]]:
+    """Map a UI platform selection to a priority list."""
+    mapping: Dict[str, List[Platform]] = {
+        "veo": [Platform.VEO, Platform.GROK, Platform.GEMINI, Platform.CHATGPT],
+        "grok": [Platform.GROK, Platform.VEO, Platform.GEMINI, Platform.CHATGPT],
+        "gemini": [Platform.GEMINI, Platform.VEO, Platform.GROK, Platform.CHATGPT],
+        "chatgpt": [Platform.CHATGPT, Platform.GEMINI, Platform.GROK, Platform.VEO],
+        "both": [Platform.VEO, Platform.GROK, Platform.GEMINI, Platform.CHATGPT],
+    }
+    return mapping.get(selected)
+
+
+# ---------------------------------------------------------------------------
+# Generation Worker (runs in background thread)
+# ---------------------------------------------------------------------------
+
 def _run_generation(params: Dict[str, Any], settings: Any) -> None:
-    """Background thread: orchestrate full video generation pipeline."""
+    """Background thread: orchestrate full video generation pipeline via Hybrid controller."""
     st.session_state.generation_started = True
     st.session_state.job_status = "running"
     st.session_state.log_messages = []
     st.session_state.generated_videos = []
 
     try:
-        _log("🚀 Starting generation pipeline …")
+        _log("🚀 Starting Hybrid generation pipeline …")
+
+        # Build controller with platform priority matching UI selection
+        priority = _platform_priority_from_selection(params.get("platform", "veo"))
+        controller = _build_hybrid_controller(settings)
+        if priority:
+            controller._priority = priority  # apply UI selection
+
+        output_dir = params.get("output_dir") or settings.output_dir
 
         brain = BrainModule(
             api_key=settings.google_gemini_api_key,
@@ -259,22 +556,22 @@ def _run_generation(params: Dict[str, Any], settings: Any) -> None:
             replicate_token=settings.replicate_api_token,
             runway_api_key=settings.runway_api_key,
             heygen_api_key=settings.heygen_api_key,
-            output_dir=settings.output_dir,
+            output_dir=output_dir,
         )
         audio = AudioModule(
             google_credentials_json=settings.google_cloud_credentials_json,
             elevenlabs_api_key=settings.elevenlabs_api_key,
             replicate_token=settings.replicate_api_token,
-            output_dir=settings.output_dir,
+            output_dir=output_dir,
         )
-        post = PostProduction(output_dir=settings.output_dir, fps=settings.video_fps)
+        post = PostProduction(output_dir=output_dir, fps=settings.video_fps)
         tracker = CostTracker(budget_usd=settings.budget_limit_usd)
 
         total_count = params["video_count"] * params["variations"]
-        _log(f"📋 Generating {total_count} videos …")
+        _log(f"📋 Generating {total_count} videos via platform: {params.get('platform', 'veo')} …")
 
         videos_done = 0
-        metadata_dir = ensure_dir(f"{settings.output_dir}/metadata")
+        metadata_dir = ensure_dir(f"{output_dir}/metadata")
 
         for v_idx in range(params["video_count"]):
             for var_idx in range(params["variations"]):
@@ -287,7 +584,19 @@ def _run_generation(params: Dict[str, Any], settings: Any) -> None:
                     f"[{videos_done + 1}/{total_count}] Generating {style} video …"
                 )
 
-                # 1. Generate script.
+                # 1. Generate script via controller (Gemini/ChatGPT/Grok).
+                script_result = controller.run_task(
+                    task_type=TaskType.WRITE_SCRIPT,
+                    payload={
+                        "topic": params["topic"],
+                        "style": style,
+                        "language": params["language"],
+                        "duration": params["duration"],
+                        "scene_count": params.get("scene_count", 10),
+                        "variation_index": var_idx,
+                    },
+                )
+                # Fall back to BrainModule if controller script is a stub
                 script = brain.generate_script(
                     topic=params["topic"],
                     style=style,
@@ -296,15 +605,45 @@ def _run_generation(params: Dict[str, Any], settings: Any) -> None:
                     variation_index=var_idx,
                 )
                 tracker.record_gemini(input_tokens=600, output_tokens=400)
+                _log(
+                    f"  ✍️ Script via {script_result.platform_used or 'gemini'}: "
+                    f"{len(script.scenes)} scenes"
+                )
 
-                # 2. Generate scenes.
+                # 2. Generate scenes via controller (Veo / Grok / GPU fallback).
                 clip_paths = []
+                previous_video_id: Optional[str] = None
+
                 for scene in script.scenes:
+                    payload: Dict[str, Any] = {
+                        "prompt": scene.description,
+                        "narration": scene.narration,
+                        "duration_seconds": scene.duration_seconds,
+                        "aspect_ratio": params["aspect_ratio"],
+                        "style": style,
+                        "scene_index": scene.index,
+                        "scene_count": len(script.scenes),
+                    }
+                    if previous_video_id:
+                        payload["extend_from_video_id"] = previous_video_id
+
+                    ctrl_result = controller.run_task(
+                        task_type=TaskType.TEXT_TO_VIDEO
+                        if not hasattr(scene, "image_path")
+                        else TaskType.IMAGE_TO_VIDEO,
+                        payload=payload,
+                    )
+
+                    # Update chaining ID for Grok extend-video continuity
+                    if ctrl_result.output and isinstance(ctrl_result.output, dict):
+                        previous_video_id = ctrl_result.output.get("extend_video_id")
+
+                    # Visual engine fallback for scene clip (local processing)
                     try:
                         if style == "avatar":
                             clip = visual.create_avatar_video(
                                 script_text=scene.narration,
-                                output_dir=f"{settings.output_dir}/clips",
+                                output_dir=f"{output_dir}/clips",
                             )
                             tracker.record_video_generation(
                                 clip.duration_seconds, provider="heygen"
@@ -313,22 +652,22 @@ def _run_generation(params: Dict[str, Any], settings: Any) -> None:
                             clip = visual.generate_cinematic_video(
                                 prompt=scene.description,
                                 duration_seconds=scene.duration_seconds,
-                                output_dir=f"{settings.output_dir}/clips",
+                                output_dir=f"{output_dir}/clips",
                             )
                             tracker.record_video_generation(
                                 clip.duration_seconds, provider="runway"
                             )
-                        else:  # motion
+                        else:  # motion / default
                             img = visual.generate_image(
                                 prompt=scene.description,
-                                output_dir=f"{settings.output_dir}/images",
+                                output_dir=f"{output_dir}/images",
                             )
                             tracker.record_image_generation(1)
                             clip = visual.generate_video_from_image(
                                 image_path=img.path,
                                 prompt=scene.description,
                                 duration_seconds=scene.duration_seconds,
-                                output_dir=f"{settings.output_dir}/clips",
+                                output_dir=f"{output_dir}/clips",
                             )
                             tracker.record_video_generation(
                                 clip.duration_seconds, provider="runway"
@@ -364,6 +703,9 @@ def _run_generation(params: Dict[str, Any], settings: Any) -> None:
                     "duration_seconds": result.duration_seconds,
                     "aspect_ratio": params["aspect_ratio"],
                     "cost_usd": tracker.total_cost,
+                    "platform": params.get("platform", "veo"),
+                    "scene_count": len(script.scenes),
+                    "project_name": params.get("project_name", "default_project"),
                 }
                 meta_path = metadata_dir / f"video_{v_idx:04d}_var{var_idx}.json"
                 write_json(meta, meta_path)
@@ -409,12 +751,44 @@ def _run_generation(params: Dict[str, Any], settings: Any) -> None:
 def _tab_generate(params: Dict[str, Any], settings: Any) -> None:
     st.header("🚀 Generate Videos")
 
+    # --- Platform & Account Info -------------------------------------------
+    with st.expander("🔑 Platform & Account Info", expanded=False):
+        platform = params.get("platform", "veo")
+        if platform in ("veo", "both"):
+            veo_acct = getattr(settings, "veo_account_type", "") or "N/A"
+            veo_exp = getattr(settings, "veo_expires_at", "") or "N/A"
+            st.markdown(
+                f"🎬 **Veo** — Account type: **{veo_acct}** | Expiry: **{veo_exp}** "
+                f"| Clip duration: **8s/scene**"
+            )
+        if platform in ("grok", "both"):
+            grok_acct = getattr(settings, "grok_account_type", "") or "N/A"
+            grok_exp = getattr(settings, "grok_expires_at", "") or "N/A"
+            st.markdown(
+                f"⚡ **Grok** — Account type: **{grok_acct}** | Expiry: **{grok_exp}** "
+                f"| Clip duration: **6s/scene**"
+            )
+        scene_count = params.get("scene_count", 10)
+        secs = PLATFORM_SCENE_SECONDS.get(
+            "veo" if platform in ("veo", "both") else platform, 8.0
+        )
+        total_secs = scene_count * secs
+        st.info(
+            f"⏱️ Total ~{total_secs:.0f}s ({scene_count} scenes × {secs:.0f}s)"
+        )
+
     # Validate inputs.
     err_msgs: List[str] = []
     if not params["topic"].strip():
         err_msgs.append("Please enter a video topic in the sidebar.")
-    if not settings.google_gemini_api_key:
-        err_msgs.append("Google Gemini API key is not configured (Settings page).")
+    if (
+        not getattr(settings, "veo_api_key", "")
+        and not getattr(settings, "grok_api_key", "")
+        and not settings.google_gemini_api_key
+    ):
+        err_msgs.append(
+            "No API keys configured. Add at least one key on the Settings page."
+        )
 
     if err_msgs:
         for msg in err_msgs:
@@ -440,6 +814,12 @@ def _tab_generate(params: Dict[str, Any], settings: Any) -> None:
             thread.start()
             st.rerun()
 
+        if st.session_state.generation_started and not st.session_state.generation_complete:
+            if st.button("⏹️ Stop", use_container_width=True):
+                st.session_state.job_status = "idle"
+                st.session_state.generation_started = False
+                st.rerun()
+
     with col_status:
         status_icon = {
             "idle": "⏸️",
@@ -448,6 +828,8 @@ def _tab_generate(params: Dict[str, Any], settings: Any) -> None:
             "error": "❌",
         }.get(st.session_state.job_status, "⏸️")
         st.markdown(f"**Status:** {status_icon} {st.session_state.job_status.capitalize()}")
+        if params.get("project_name"):
+            st.caption(f"📁 Project: {params['project_name']}")
 
     # Progress bar.
     if st.session_state.generation_started:
@@ -457,6 +839,15 @@ def _tab_generate(params: Dict[str, Any], settings: Any) -> None:
     # Error message.
     if st.session_state.error_message:
         st.error(st.session_state.error_message)
+        if st.button("🔄 Retry Last Failed Video"):
+            st.session_state.error_message = ""
+            thread = threading.Thread(
+                target=_run_generation,
+                args=(params, settings),
+                daemon=True,
+            )
+            thread.start()
+            st.rerun()
 
     # Live cost.
     if st.session_state.total_cost > 0:
@@ -469,7 +860,7 @@ def _tab_generate(params: Dict[str, Any], settings: Any) -> None:
     # Log output.
     if st.session_state.log_messages:
         with st.expander("📋 Generation Log", expanded=True):
-            for msg in st.session_state.log_messages[-30:]:
+            for msg in st.session_state.log_messages[-50:]:
                 st.text(msg)
 
     # Cost estimate preview.
@@ -484,6 +875,166 @@ def _tab_generate(params: Dict[str, Any], settings: Any) -> None:
     if st.session_state.job_status == "running":
         time.sleep(2)
         st.rerun()
+
+
+# ---------------------------------------------------------------------------
+# Tab: Avatar / Face Generator
+# ---------------------------------------------------------------------------
+
+def _tab_avatar(settings: Any) -> None:
+    st.header("🧑‍💼 Avatar & Face Video Generator")
+    st.markdown(
+        "Upload a reference face photo, then generate AI images, avatars, "
+        "or face-consistent videos."
+    )
+
+    output_dir = st.session_state.get("output_dir_override") or getattr(settings, "output_dir", "output")
+
+    col_upload, col_options = st.columns([1, 2])
+
+    with col_upload:
+        st.subheader("📷 Reference Face")
+        uploaded_file = st.file_uploader(
+            "Upload face reference image",
+            type=["jpg", "jpeg", "png", "webp"],
+            help="Upload a clear front-facing photo of the person.",
+        )
+        if uploaded_file is not None:
+            # Save uploaded file temporarily
+            ref_dir = Path(output_dir) / "face_refs"
+            ref_dir.mkdir(parents=True, exist_ok=True)
+            tmp_path = ref_dir / f"upload_{uploaded_file.name}"
+            tmp_path.write_bytes(uploaded_file.getvalue())
+
+            st.image(str(tmp_path), caption="Reference face", width=200)
+
+            if st.button("✅ Register Face Reference", type="primary"):
+                avatar_engine = AvatarEngine(output_dir=output_dir)
+                ref = avatar_engine.register_reference(str(tmp_path))
+                refs = st.session_state.face_references
+                refs.append(
+                    {"id": ref.reference_id, "path": str(tmp_path), "detected": ref.detected}
+                )
+                st.session_state.face_references = refs
+                if ref.detected:
+                    st.success(f"✅ Face registered! ID: {ref.reference_id}")
+                else:
+                    st.warning(
+                        f"⚠️ Face registered (ID: {ref.reference_id}) but detection uncertain — "
+                        "results may vary."
+                    )
+
+        # Show registered references
+        if st.session_state.face_references:
+            st.markdown("**Registered faces:**")
+            for r in st.session_state.face_references:
+                st.caption(
+                    f"ID: {r['id']} | Detected: {'✅' if r['detected'] else '⚠️'}"
+                )
+
+    with col_options:
+        st.subheader("🎨 Generation Options")
+
+        ref_ids = [r["id"] for r in st.session_state.face_references]
+        if not ref_ids:
+            st.info("Upload and register a face reference first.")
+            return
+
+        selected_ref = st.selectbox("Select face reference", ref_ids)
+
+        output_type = st.radio(
+            "Output type",
+            options=[AvatarOutputType.IMAGE, AvatarOutputType.AVATAR, AvatarOutputType.VIDEO],
+            format_func=lambda t: {
+                AvatarOutputType.IMAGE: "🖼️ Image",
+                AvatarOutputType.AVATAR: "🧑‍💼 Avatar",
+                AvatarOutputType.VIDEO: "🎬 Video",
+            }.get(t, str(t)),
+            horizontal=True,
+        )
+
+        style = st.selectbox(
+            "Style",
+            options=list(AvatarStyle),
+            format_func=lambda s: s.value.replace("_", " ").title(),
+        )
+
+        prompt = st.text_area(
+            "Scene / Prompt",
+            placeholder="Describe the scene, pose, background, action…",
+            height=80,
+        )
+
+        if output_type == AvatarOutputType.VIDEO:
+            scene_prompts_raw = st.text_area(
+                "Scene prompts (one per line)",
+                placeholder="Scene 1 description\nScene 2 description\n…",
+                height=120,
+                help="Each line becomes one scene clip.",
+            )
+            aspect_ratio = st.selectbox(
+                "Aspect Ratio",
+                options=list(SUPPORTED_ASPECT_RATIOS.keys()),
+                index=1,
+            )
+            scene_secs = st.number_input(
+                "Seconds per scene",
+                min_value=1.0,
+                max_value=60.0,
+                value=8.0,
+                step=1.0,
+            )
+
+        if st.button("🚀 Generate", type="primary"):
+            avatar_engine = AvatarEngine(output_dir=output_dir)
+            # Re-register the reference so the engine knows about it
+            ref_info = next(
+                (r for r in st.session_state.face_references if r["id"] == selected_ref),
+                None,
+            )
+            if ref_info:
+                avatar_engine.register_reference(ref_info["path"])
+
+            with st.spinner("Generating…"):
+                if output_type == AvatarOutputType.IMAGE:
+                    result = avatar_engine.generate_image(
+                        reference_id=selected_ref, prompt=prompt, style=style
+                    )
+                    if result.success and result.output_path and result.output_path.exists():
+                        st.image(str(result.output_path), caption="Generated Image")
+                    else:
+                        st.error(f"Generation failed: {result.error}")
+
+                elif output_type == AvatarOutputType.AVATAR:
+                    result = avatar_engine.generate_avatar(
+                        reference_id=selected_ref, style=style
+                    )
+                    if result.success and result.output_path and result.output_path.exists():
+                        st.image(str(result.output_path), caption="Generated Avatar")
+                    else:
+                        st.error(f"Generation failed: {result.error}")
+
+                elif output_type == AvatarOutputType.VIDEO:
+                    scenes = [
+                        s.strip()
+                        for s in scene_prompts_raw.splitlines()
+                        if s.strip()
+                    ] or [prompt]
+                    results = avatar_engine.generate_video(
+                        reference_id=selected_ref,
+                        scene_prompts=scenes,
+                        style=style,
+                        aspect_ratio=aspect_ratio,
+                        scene_seconds=scene_secs,
+                    )
+                    for i, r in enumerate(results):
+                        if r.success and r.output_path and r.output_path.exists():
+                            st.video(str(r.output_path))
+                        else:
+                            st.warning(
+                                f"Scene {i + 1} failed: {r.error}. "
+                                "Re-run generation to retry failed scenes."
+                            )
 
 
 # ---------------------------------------------------------------------------
@@ -636,12 +1187,15 @@ def main() -> None:
     # Generator layout.
     params = _render_sidebar()
 
-    tab_gen, tab_results, tab_analytics = st.tabs(
-        ["🚀 Generate", "📁 Results", "📊 Analytics"]
+    tab_gen, tab_avatar, tab_results, tab_analytics = st.tabs(
+        ["🚀 Generate", "🧑‍💼 Avatar", "📁 Results", "📊 Analytics"]
     )
 
     with tab_gen:
         _tab_generate(params, settings)
+
+    with tab_avatar:
+        _tab_avatar(settings)
 
     with tab_results:
         _tab_results()
@@ -652,4 +1206,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
