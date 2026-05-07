@@ -292,10 +292,7 @@ class Station2GPUExecutor:
             self._emit_log(f"  VM state: {status.state}")
             if status.state == VMState.RUNNING:
                 return status
-            if status.state in (VMState.TERMINATED, VMState.UNKNOWN):
-                time.sleep(poll_interval)
-            else:
-                time.sleep(poll_interval)
+            time.sleep(poll_interval)
 
         return self._get_vm_status()
 

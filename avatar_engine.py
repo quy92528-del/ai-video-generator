@@ -448,7 +448,7 @@ class AvatarEngine:
                     "output_path": str(out_path),
                     "scene_index": scene_idx,
                 }
-                # Pass previous video ID for Grok scene chaining
+                # Pass previous Grok video ID to keep scene-to-scene narrative continuity
                 if previous_video_id:
                     payload["extend_from_video_id"] = previous_video_id
 

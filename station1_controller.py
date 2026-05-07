@@ -316,7 +316,7 @@ class Station1Controller:
                 except APICallError as exc:
                     key_entry.mark_error()
                     self._emit_log(
-                        f"🔴 API error on {platform.value}: {exc}. Trying next platform…"
+                        f"🔴 API error on {platform.value}: {exc!s}. Trying next platform…"
                     )
                     last_error = str(exc)
 

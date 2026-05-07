@@ -543,8 +543,6 @@ def _run_generation(params: Dict[str, Any], settings: Any) -> None:
         # Build controller with platform priority matching UI selection
         priority = _platform_priority_from_selection(params.get("platform", "veo"))
         controller = _build_hybrid_controller(settings)
-        if priority:
-            controller._priority = priority  # apply UI selection
 
         output_dir = params.get("output_dir") or settings.output_dir
 
@@ -595,16 +593,22 @@ def _run_generation(params: Dict[str, Any], settings: Any) -> None:
                         "scene_count": params.get("scene_count", 10),
                         "variation_index": var_idx,
                     },
+                    preferred_platforms=priority,
                 )
-                # Fall back to BrainModule if controller script is a stub
-                script = brain.generate_script(
-                    topic=params["topic"],
-                    style=style,
-                    language=params["language"],
-                    duration=params["duration"],
-                    variation_index=var_idx,
-                )
-                tracker.record_gemini(input_tokens=600, output_tokens=400)
+                script = None
+                if isinstance(script_result.output, dict):
+                    script = script_result.output.get("script")
+
+                # Fall back to BrainModule if controller script is unavailable
+                if script is None:
+                    script = brain.generate_script(
+                        topic=params["topic"],
+                        style=style,
+                        language=params["language"],
+                        duration=params["duration"],
+                        variation_index=var_idx,
+                    )
+                    tracker.record_gemini(input_tokens=600, output_tokens=400)
                 _log(
                     f"  ✍️ Script via {script_result.platform_used or 'gemini'}: "
                     f"{len(script.scenes)} scenes"
@@ -632,6 +636,7 @@ def _run_generation(params: Dict[str, Any], settings: Any) -> None:
                         if not hasattr(scene, "image_path")
                         else TaskType.IMAGE_TO_VIDEO,
                         payload=payload,
+                        preferred_platforms=priority,
                     )
 
                     # Update chaining ID for Grok extend-video continuity
