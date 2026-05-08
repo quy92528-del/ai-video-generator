@@ -7,7 +7,7 @@ Write-Host "[run_ui] Repository root: $repoRoot"
 
 foreach ($required in @("main.py", "requirements.txt", ".env.example")) {
     if (-not (Test-Path $required)) {
-        throw "[run_ui] Missing required file: $required. Please run from the repository checkout."
+        throw "[run_ui] Missing required file: $required. Please run this script from the repository root directory."
     }
 }
 
