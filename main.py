@@ -8,6 +8,7 @@ Entry point:
 from __future__ import annotations
 
 import json
+import sys
 import threading
 import time
 from pathlib import Path
@@ -18,12 +19,29 @@ import streamlit as st
 # ---------------------------------------------------------------------------
 # Page config (must be first Streamlit call)
 # ---------------------------------------------------------------------------
+
+
+def _is_running_in_streamlit() -> bool:
+    """Return True when executed inside Streamlit runtime."""
+    runtime = getattr(st, "runtime", None)
+    exists = getattr(runtime, "exists", None)
+    return bool(exists()) if callable(exists) else False
+
+
 st.set_page_config(
     page_title="AI Video Generator Suite",
     page_icon="🎬",
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# Fast-fail when launched with `python main.py` instead of Streamlit.
+if __name__ == "__main__" and not _is_running_in_streamlit():
+    print("This project is a Streamlit app.")
+    print("Run it with: streamlit run main.py")
+    if sys.platform.startswith("win"):
+        print("Windows shortcut: run_ui.bat (or scripts\\run_ui.ps1)")
+    sys.exit(1)
 
 # ---------------------------------------------------------------------------
 # Local imports (after st.set_page_config)

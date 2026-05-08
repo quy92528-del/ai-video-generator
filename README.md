@@ -122,11 +122,29 @@ Fill in at least **GOOGLE_GEMINI_API_KEY** to start.  See the [API Key Setup](#a
 
 ### 4. Run the App
 
-```bash
+```shell
 streamlit run main.py
 ```
 
 Open **http://localhost:8501** in your browser.
+
+### 5. Windows one-click launcher
+
+```powershell
+# From repository root:
+.\run_ui.bat
+# or
+powershell -ExecutionPolicy Bypass -File .\scripts\run_ui.ps1
+```
+
+Both launchers auto-switch to the repository folder, install dependencies,
+create `.env` from `.env.example` if missing, then run:
+
+```shell
+python -m streamlit run main.py
+```
+
+Set `RUN_UI_SKIP_INSTALL=1` if dependencies are already installed and you want a faster startup.
 
 ---
 
@@ -264,6 +282,18 @@ With **$300 Google Cloud credit** (and other API keys):
 ---
 
 ## 🔧 Troubleshooting
+
+### "missing ScriptRunContext" warning
+- You started Streamlit incorrectly with `python main.py`
+- Start the UI with `streamlit run main.py` (or use `run_ui.bat` / `scripts/run_ui.ps1`)
+
+### `.env.example` not found
+- You are in the wrong directory (for example `C:\Users\...` instead of this repo)
+- Run `cd <path-to-ai-video-generator>` first, or use `run_ui.bat` / `scripts/run_ui.ps1`
+
+### `main.py` not found
+- Same root cause: wrong working directory
+- Confirm with `dir` (Windows) or `ls` (macOS/Linux) that `main.py` exists before running Streamlit
 
 ### "ModuleNotFoundError" on startup
 ```bash
