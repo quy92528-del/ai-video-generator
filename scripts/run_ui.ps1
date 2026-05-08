@@ -26,7 +26,7 @@ if (-not (Test-Path ".env")) {
     try {
         Copy-Item ".env.example" ".env" -ErrorAction Stop
     } catch {
-        throw "[run_ui] Failed to create .env from .env.example"
+        throw "[run_ui] Failed to create .env from .env.example: $($_.Exception.Message)"
     }
 }
 
