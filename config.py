@@ -12,7 +12,11 @@ from typing import List, Optional
 
 from dotenv import load_dotenv
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings
+
+try:
+    from pydantic_settings import BaseSettings  # Pydantic v2
+except ImportError:
+    from pydantic import BaseSettings  # type: ignore[no-redef]  # Pydantic v1 fallback
 
 # ---------------------------------------------------------------------------
 # Load .env file from project root
