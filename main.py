@@ -39,7 +39,8 @@ st.set_page_config(
 if __name__ == "__main__" and not _is_running_in_streamlit():
     print("This project is a Streamlit app.")
     print("Run it with: streamlit run main.py")
-    print("Windows shortcut: run_ui.bat (or scripts\\run_ui.ps1)")
+    if sys.platform.startswith("win"):
+        print("Windows shortcut: run_ui.bat (or scripts\\run_ui.ps1)")
     sys.exit(1)
 
 # ---------------------------------------------------------------------------

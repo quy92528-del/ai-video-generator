@@ -17,7 +17,7 @@ if ($env:RUN_UI_SKIP_INSTALL -eq "1") {
     Write-Host "[run_ui] Installing dependencies..."
     python -m pip install -r requirements.txt
     if ($LASTEXITCODE -ne 0) {
-        throw "[run_ui] Dependency installation failed."
+        throw "[run_ui] Dependency installation failed. Verify Python/pip installation and network connectivity."
     }
 }
 
