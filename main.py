@@ -27,7 +27,8 @@ st.set_page_config(
 )
 
 # Fast-fail when launched with `python main.py` instead of Streamlit.
-has_streamlit_runtime = bool(getattr(getattr(st, "runtime", None), "exists", lambda: False)())
+runtime = getattr(st, "runtime", None)
+has_streamlit_runtime = bool(getattr(runtime, "exists", lambda: False)())
 if __name__ == "__main__" and not has_streamlit_runtime:
     print("This project is a Streamlit app.")
     print("Run it with: streamlit run main.py")
