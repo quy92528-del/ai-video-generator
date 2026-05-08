@@ -26,6 +26,12 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# Fast-fail when launched with `python main.py` instead of Streamlit.
+if __name__ == "__main__" and not st.runtime.exists():
+    print("This project is a Streamlit app.")
+    print("Run it with: streamlit run main.py")
+    sys.exit(1)
+
 # ---------------------------------------------------------------------------
 # Local imports (after st.set_page_config)
 # ---------------------------------------------------------------------------
@@ -1211,13 +1217,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    try:
-        from streamlit.runtime.scriptrunner import get_script_run_ctx
-
-        if get_script_run_ctx() is None:
-            print("This project is a Streamlit app.")
-            print("Run it with: streamlit run main.py")
-            sys.exit(1)
-    except Exception:
-        pass
     main()
