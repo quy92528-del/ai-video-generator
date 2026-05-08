@@ -144,6 +144,8 @@ create `.env` from `.env.example` if missing, then run:
 python -m streamlit run main.py
 ```
 
+Set `RUN_UI_SKIP_INSTALL=1` if dependencies are already installed and you want a faster startup.
+
 ---
 
 ## 🔑 API Key Configuration

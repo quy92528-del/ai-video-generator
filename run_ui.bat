@@ -19,8 +19,12 @@ if not exist ".env.example" (
   exit /b 1
 )
 
-echo [run_ui] Installing dependencies...
-python -m pip install -r requirements.txt || exit /b 1
+if /I "%RUN_UI_SKIP_INSTALL%"=="1" (
+  echo [run_ui] Skipping dependency install because RUN_UI_SKIP_INSTALL=1
+) else (
+  echo [run_ui] Installing dependencies...
+  python -m pip install -r requirements.txt || exit /b 1
+)
 
 if not exist ".env" (
   echo [run_ui] .env not found, creating from .env.example
