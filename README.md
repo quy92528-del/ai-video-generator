@@ -147,7 +147,7 @@ streamlit run main.py
 
 **Important:**
 - `python main.py` is not the correct launch command for this UI.
-- `python run_ai_video_generator.py` only works if you manually created that script from an external example; it is not part of this repository.
+- `python run_ai_video_generator.py` only works if you manually created that script from an external example; it is not part of this repository and will fail with "No such file or directory" by default.
 - If dependency install fails on Python 3.12, use Python 3.10 or 3.11 in a virtual environment.
 
 ---
