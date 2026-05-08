@@ -13,6 +13,9 @@ foreach ($required in @("main.py", "requirements.txt", ".env.example")) {
 
 Write-Host "[run_ui] Installing dependencies..."
 python -m pip install -r requirements.txt
+if ($LASTEXITCODE -ne 0) {
+    throw "[run_ui] Dependency installation failed."
+}
 
 if (-not (Test-Path ".env")) {
     Write-Host "[run_ui] .env not found, creating from .env.example"

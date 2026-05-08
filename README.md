@@ -122,7 +122,7 @@ Fill in at least **GOOGLE_GEMINI_API_KEY** to start.  See the [API Key Setup](#a
 
 ### 4. Run the App
 
-```bash
+```shell
 streamlit run main.py
 ```
 

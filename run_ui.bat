@@ -24,7 +24,10 @@ python -m pip install -r requirements.txt || exit /b 1
 
 if not exist ".env" (
   echo [run_ui] .env not found, creating from .env.example
-  copy /Y ".env.example" ".env" >nul || exit /b 1
+  copy /Y ".env.example" ".env" >nul || (
+    echo [run_ui] Failed to create .env from .env.example
+    exit /b 1
+  )
 )
 
 echo [run_ui] Starting Streamlit UI...
