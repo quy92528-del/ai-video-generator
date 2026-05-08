@@ -128,6 +128,28 @@ streamlit run main.py
 
 Open **http://localhost:8501** in your browser.
 
+### Troubleshooting: "No changes compared to before"
+
+If you don't see the new Hybrid UI (platform selector, account info, avatar tab), check:
+
+```bash
+# 1) Make sure you are on the latest main branch
+git fetch origin
+git checkout main
+git pull origin main
+
+# 2) Verify Hybrid files exist
+ls station1_controller.py station2_gpu_executor.py avatar_engine.py
+
+# 3) Run the correct entrypoint
+streamlit run main.py
+```
+
+**Important:**
+- `python main.py` is not the correct launch command for this UI.
+- `python run_ai_video_generator.py` only works if you manually created that script from an external example; it is not part of this repository and will fail with "No such file or directory" by default.
+- If dependency install fails on Python 3.12, use Python 3.10 or 3.11 in a virtual environment.
+
 ---
 
 ## 🔑 API Key Configuration
