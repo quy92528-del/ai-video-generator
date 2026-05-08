@@ -19,6 +19,15 @@ import streamlit as st
 # ---------------------------------------------------------------------------
 # Page config (must be first Streamlit call)
 # ---------------------------------------------------------------------------
+
+
+def _is_running_in_streamlit() -> bool:
+    """Return True when executed inside Streamlit runtime."""
+    runtime = getattr(st, "runtime", None)
+    exists = getattr(runtime, "exists", None)
+    return bool(exists()) if callable(exists) else False
+
+
 st.set_page_config(
     page_title="AI Video Generator Suite",
     page_icon="🎬",
@@ -27,9 +36,7 @@ st.set_page_config(
 )
 
 # Fast-fail when launched with `python main.py` instead of Streamlit.
-runtime = getattr(st, "runtime", None)
-has_streamlit_runtime = bool(getattr(runtime, "exists", lambda: False)())
-if __name__ == "__main__" and not has_streamlit_runtime:
+if __name__ == "__main__" and not _is_running_in_streamlit():
     print("This project is a Streamlit app.")
     print("Run it with: streamlit run main.py")
     sys.exit(1)
