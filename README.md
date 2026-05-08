@@ -141,7 +141,7 @@ Both launchers auto-switch to the repository folder, install dependencies,
 create `.env` from `.env.example` if missing, then run:
 
 ```shell
-streamlit run main.py
+python -m streamlit run main.py
 ```
 
 ---
