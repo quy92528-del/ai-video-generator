@@ -145,7 +145,7 @@ ls station1_controller.py station2_gpu_executor.py avatar_engine.py
 streamlit run main.py
 ```
 
-Important:
+**Important:**
 - `python main.py` is not the correct launch command for this UI.
 - `python run_ai_video_generator.py` only works if you manually created that script from an external example; it is not part of this repository.
 - If dependency install fails on Python 3.12, use Python 3.10 or 3.11 in a virtual environment.
