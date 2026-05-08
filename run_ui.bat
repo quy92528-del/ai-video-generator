@@ -28,7 +28,7 @@ if /I "%RUN_UI_SKIP_INSTALL%"=="1" (
 
 if not exist ".env" (
   echo [run_ui] .env not found, creating from .env.example
-  copy ".env.example" ".env" >nul || (
+  copy ".env.example" ".env" || (
     echo [run_ui] Failed to create .env from .env.example
     exit /b 1
   )

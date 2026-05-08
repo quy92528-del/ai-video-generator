@@ -23,7 +23,11 @@ if ($env:RUN_UI_SKIP_INSTALL -eq "1") {
 
 if (-not (Test-Path ".env")) {
     Write-Host "[run_ui] .env not found, creating from .env.example"
-    Copy-Item ".env.example" ".env"
+    try {
+        Copy-Item ".env.example" ".env" -ErrorAction Stop
+    } catch {
+        throw "[run_ui] Failed to create .env from .env.example"
+    }
 }
 
 Write-Host "[run_ui] Starting Streamlit UI..."
