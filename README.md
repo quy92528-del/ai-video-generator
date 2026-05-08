@@ -140,7 +140,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_ui.ps1
 Both launchers auto-switch to the repository folder, install dependencies,
 create `.env` from `.env.example` if missing, then run:
 
-```bash
+```shell
 streamlit run main.py
 ```
 
