@@ -8,6 +8,7 @@ Entry point:
 from __future__ import annotations
 
 import json
+import sys
 import threading
 import time
 from pathlib import Path
@@ -24,6 +25,13 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# Fast-fail when launched with `python main.py` instead of Streamlit.
+has_streamlit_runtime = bool(getattr(getattr(st, "runtime", None), "exists", lambda: False)())
+if __name__ == "__main__" and not has_streamlit_runtime:
+    print("This project is a Streamlit app.")
+    print("Run it with: streamlit run main.py")
+    sys.exit(1)
 
 # ---------------------------------------------------------------------------
 # Local imports (after st.set_page_config)
