@@ -26,6 +26,46 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------------------------
+# Global CSS – ensure text inputs are always visible regardless of theme
+# ---------------------------------------------------------------------------
+st.markdown(
+    """
+    <style>
+    /* Fix: ensure typed text is visible in all input/textarea elements */
+    input, textarea, [data-baseweb="input"] input, [data-baseweb="textarea"] textarea {
+        color: #000000 !important;
+        background-color: #ffffff !important;
+        caret-color: #000000 !important;
+    }
+    /* Dark-mode override: Streamlit theme and OS-level dark preference */
+    [data-theme="dark"] input,
+    [data-theme="dark"] textarea,
+    [data-theme="dark"] [data-baseweb="input"] input,
+    [data-theme="dark"] [data-baseweb="textarea"] textarea {
+        color: #fafafa !important;
+        background-color: #262730 !important;
+        caret-color: #fafafa !important;
+    }
+    @media (prefers-color-scheme: dark) {
+        html:not([data-theme="light"]) input,
+        html:not([data-theme="light"]) textarea,
+        html:not([data-theme="light"]) [data-baseweb="input"] input,
+        html:not([data-theme="light"]) [data-baseweb="textarea"] textarea {
+            color: #fafafa !important;
+            background-color: #262730 !important;
+            caret-color: #fafafa !important;
+        }
+    }
+    /* Placeholder text – keep it legible but slightly muted */
+    input::placeholder, textarea::placeholder {
+        opacity: 0.6;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# ---------------------------------------------------------------------------
 # Local imports (after st.set_page_config)
 # ---------------------------------------------------------------------------
 from config import (
